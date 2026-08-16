@@ -155,8 +155,9 @@ def init_backend():
 
     workflow.add_conditional_edges("check_hallucination", handle_hallucination)
     
-    conn = sqlite3.connect("checkpoints.sqlite", check_same_thread=False)
+    conn = sqlite3.connect("checkpoints.sqlite", check_same_thread=False, timeout=30)
     memory = SqliteSaver(conn)
+    memory.setup()
     app = workflow.compile(checkpointer=memory)
     return app
 
@@ -165,7 +166,7 @@ app = init_backend()
 
 def get_all_threads():
     try:
-        conn = sqlite3.connect("checkpoints.sqlite", check_same_thread=False)
+        conn = sqlite3.connect("checkpoints.sqlite", check_same_thread=False, timeout=30)
         cursor = conn.cursor()
         cursor.execute("SELECT DISTINCT thread_id FROM checkpoints")
         threads = [row[0] for row in cursor.fetchall()]

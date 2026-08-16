@@ -71,7 +71,7 @@ STEP 3: LANGGRAPH AGENTIC CONTROL FLOW
   `GraphState` maintains:
    - `question`: User query
    - `generation`: LLM response
-   - `web_search`: Boolean flag for out-of-scope queries
+   - `web_search`: Boolean flag for out-of-scope queriesv
    - `documents`: List of retrieved 3GPP document chunks
 
 - Node Execution Pipeline:

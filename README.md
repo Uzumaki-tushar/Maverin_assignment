@@ -99,8 +99,6 @@ Maverin_assignment/
 │   └── config.toml             # Custom dark theme configuration
 ├── qdrant_db/                  # Embedded Qdrant vector database (3GPP embeddings)
 ├── checkpoints.sqlite          # Persistent SQLite database for multi-session chat history
-├── rag_architecture_workflow.md# Comprehensive architectural workflow & Mermaid diagrams
-├── vedio.txt                   # Complete video presentation script & tech walkthrough
 ├── test_demo.txt               # 10 Test scenarios (In-domain queries & out-of-domain guardrail tests)
 └── .gitignore                  # Optimized Git ignore rules
 ```
@@ -145,11 +143,7 @@ Try these query scenarios in the chatbot interface:
 | **In-Domain Query** | *"Explain the role of UPF in 5G Core architecture."* | Answers using retrieved specification context. |
 | **Out-of-Domain Guardrail Test** | *"How do I bake a chocolate cake?"* | Intercepted by document grader. Returns: *"The provided 3GPP specifications do not contain information to answer this query."* |
 
----
 
-## 📜 Video Presentation Script
-
-A complete scene-by-scene script explaining the project architecture, tech stack, and step-by-step workflow for recording a video demonstration can be found in [`vedio.txt`](vedio.txt).
 
 ---
 

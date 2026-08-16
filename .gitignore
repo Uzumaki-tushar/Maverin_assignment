@@ -35,7 +35,6 @@ api.txt
 fix_notebook.py
 ingest.py
 notebook.ipynb
-rag_architecture_workflow.md
 test_db.py
 test_demo.txt
 update_notebook2.py

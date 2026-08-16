@@ -5,7 +5,7 @@ import streamlit as st
 from typing import TypedDict, Annotated, List
 from langgraph.graph import StateGraph, END
 from langgraph.graph.message import add_messages
-from langgraph.checkpoint.sqlite import SqliteSaver
+from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.prompts import PromptTemplate
 from pydantic import BaseModel, Field
@@ -168,86 +168,55 @@ def init_backend():
 
     workflow.add_conditional_edges("check_hallucination", handle_hallucination)
     
-    conn = sqlite3.connect("checkpoints.sqlite", check_same_thread=False, timeout=30)
-    try:
-        conn.execute("PRAGMA journal_mode=WAL;")
-        conn.execute("PRAGMA busy_timeout=5000;")
-    except Exception:
-        pass
-    memory = SqliteSaver(conn)
-    memory.setup()
+    memory = MemorySaver()
     app = workflow.compile(checkpointer=memory)
     return app
 
 # Initialize backend
 app = init_backend()
 
-def get_all_threads():
-    try:
-        conn = sqlite3.connect("checkpoints.sqlite", check_same_thread=False, timeout=30)
-        cursor = conn.cursor()
-        cursor.execute("SELECT DISTINCT thread_id FROM checkpoints")
-        threads = [row[0] for row in cursor.fetchall()]
-        conn.close()
-        return threads
-    except Exception:
-        return []
+# Initialize Streamlit Session State for multi-threaded chat history
+if "thread_id" not in st.session_state:
+    st.session_state.thread_id = str(uuid.uuid4())
+if "sessions" not in st.session_state:
+    st.session_state.sessions = {}
+
+if st.session_state.thread_id not in st.session_state.sessions:
+    st.session_state.sessions[st.session_state.thread_id] = []
 
 # Sidebar for Chat History
 with st.sidebar:
     st.header("💬 Chat History")
     
     if st.button("➕ New Chat", use_container_width=True):
-        st.session_state.thread_id = str(uuid.uuid4())
-        st.session_state.messages = []
+        new_id = str(uuid.uuid4())
+        st.session_state.thread_id = new_id
+        st.session_state.sessions[new_id] = []
         st.rerun()
         
     st.divider()
     st.subheader("Previous Sessions")
     
-    threads = get_all_threads()
-    for thread in reversed(threads):
-        if thread.startswith("thread_"):
-            name = f"Simulation ({thread})"
-        else:
-            name = f"Session {thread[:8]}"
-            
+    for thread in list(st.session_state.sessions.keys()):
+        name = f"Session {thread[:8]}"
         if st.button(name, key=f"btn_{thread}", use_container_width=True):
             st.session_state.thread_id = thread
-            
-            config = {"configurable": {"thread_id": thread}}
-            st.session_state.messages = []
-            try:
-                state = app.get_state(config)
-                if state and hasattr(state, 'values') and "messages" in state.values:
-                    for m in state.values["messages"]:
-                        if isinstance(m, HumanMessage):
-                            st.session_state.messages.append({"role": "user", "content": m.content})
-                        elif isinstance(m, AIMessage):
-                            st.session_state.messages.append({"role": "assistant", "content": m.content})
-            except Exception:
-                pass
             st.rerun()
 
 # --- Streamlit UI ---
 st.title("📡 3GPP RAG Chatbot")
 st.markdown("A high-precision, near-zero hallucination chatbot for Telecom 3GPP standards.")
 
-# Initialize session state for memory
-if "thread_id" not in st.session_state:
-    st.session_state.thread_id = str(uuid.uuid4())
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-
-# Display chat history
-for msg in st.session_state.messages:
+# Display chat history for current active thread
+active_messages = st.session_state.sessions.get(st.session_state.thread_id, [])
+for msg in active_messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
 # User Input
 if prompt := st.chat_input("Ask a question about 3GPP standards..."):
-    # Render user message
-    st.session_state.messages.append({"role": "user", "content": prompt})
+    # Store and render user message
+    st.session_state.sessions[st.session_state.thread_id].append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
@@ -265,4 +234,4 @@ if prompt := st.chat_input("Ask a question about 3GPP standards..."):
                     final_response = message.content
             
             st.markdown(final_response)
-            st.session_state.messages.append({"role": "assistant", "content": final_response})
+            st.session_state.sessions[st.session_state.thread_id].append({"role": "assistant", "content": final_response})

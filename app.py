@@ -43,11 +43,24 @@ def init_backend():
 
     # Prioritize the committed local qdrant_db directory if present
     if os.path.exists("qdrant_db"):
-        vectorstore = QdrantVectorStore.from_existing_collection(
-            embedding=embeddings,
-            collection_name="3gpp_standards",
-            path="qdrant_db"
-        )
+        try:
+            vectorstore = QdrantVectorStore.from_existing_collection(
+                embedding=embeddings,
+                collection_name="3gpp_standards",
+                path="qdrant_db"
+            )
+        except Exception:
+            # Fallback if qdrant_db is locked by another process on serverless/Streamlit Cloud
+            import tempfile
+            import shutil
+            temp_dir = tempfile.mkdtemp()
+            target_path = os.path.join(temp_dir, "qdrant_db")
+            shutil.copytree("qdrant_db", target_path, ignore=shutil.ignore_patterns('.lock', '*.lock'))
+            vectorstore = QdrantVectorStore.from_existing_collection(
+                embedding=embeddings,
+                collection_name="3gpp_standards",
+                path=target_path
+            )
     elif qdrant_url and qdrant_api_key:
         vectorstore = QdrantVectorStore.from_existing_collection(
             embedding=embeddings,

@@ -21,6 +21,8 @@ import streamlit as st
 try:
     os.environ["GROQ_API_KEY"] = st.secrets.get("GROQ_API_KEY", os.environ.get("GROQ_API_KEY", ""))
     os.environ["LANGCHAIN_API_KEY"] = st.secrets.get("LANGCHAIN_API_KEY", os.environ.get("LANGCHAIN_API_KEY", ""))
+    os.environ["QDRANT_API_KEY"] = st.secrets.get("QDRANT_API_KEY", os.environ.get("QDRANT_API_KEY", ""))
+    os.environ["QDRANT_URL"] = st.secrets.get("QDRANT_URL", os.environ.get("QDRANT_URL", ""))
     os.environ["LANGCHAIN_TRACING_V2"] = "true"
     os.environ["LANGCHAIN_ENDPOINT"] = "https://api.smith.langchain.com"
     os.environ["LANGCHAIN_PROJECT"] = "3gpp-rag-chatbot"
@@ -35,11 +37,24 @@ st.set_page_config(page_title="3GPP RAG Chatbot", page_icon="🤖", layout="cent
 def init_backend():
     # 1. Embeddings & Vector Store
     embeddings = FastEmbedEmbeddings(model_name="BAAI/bge-small-en-v1.5")
-    vectorstore = QdrantVectorStore.from_existing_collection(
-        embedding=embeddings,
-        collection_name="3gpp_standards",
-        path="qdrant_db"
-    )
+    
+    qdrant_url = os.environ.get("QDRANT_URL", "")
+    qdrant_api_key = os.environ.get("QDRANT_API_KEY", "")
+
+    if qdrant_url and qdrant_api_key:
+        vectorstore = QdrantVectorStore.from_existing_collection(
+            embedding=embeddings,
+            collection_name="3gpp_standards",
+            url=qdrant_url,
+            api_key=qdrant_api_key
+        )
+    else:
+        vectorstore = QdrantVectorStore.from_existing_collection(
+            embedding=embeddings,
+            collection_name="3gpp_standards",
+            path="qdrant_db"
+        )
+        
     retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
 
     # 2. LLM Setup with Fallbacks

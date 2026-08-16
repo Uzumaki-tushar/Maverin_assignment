@@ -1,0 +1,44 @@
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+
+# SQLite Temporary/Journal Files
+*.sqlite-shm
+*.sqlite-wal
+# Note: checkpoints.sqlite is NOT ignored so your initial chat history uploads to Streamlit Cloud.
+
+# Raw Documents
+# Ignoring the raw .docx files to save space, since 'qdrant_db' already has the vectorized data
+3gpp_documentations/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+# Extra scripts and workspace files
+How to approach Ai architecture problem.docx
+api.txt
+fix_notebook.py
+ingest.py
+notebook.ipynb
+rag_architecture_workflow.md
+test_db.py
+test_demo.txt
+update_notebook2.py
+update_notebook_fallback.py
+
+qdrant_db/

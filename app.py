@@ -41,7 +41,14 @@ def init_backend():
     qdrant_url = os.environ.get("QDRANT_URL", "")
     qdrant_api_key = os.environ.get("QDRANT_API_KEY", "")
 
-    if qdrant_url and qdrant_api_key:
+    # Prioritize the committed local qdrant_db directory if present
+    if os.path.exists("qdrant_db"):
+        vectorstore = QdrantVectorStore.from_existing_collection(
+            embedding=embeddings,
+            collection_name="3gpp_standards",
+            path="qdrant_db"
+        )
+    elif qdrant_url and qdrant_api_key:
         vectorstore = QdrantVectorStore.from_existing_collection(
             embedding=embeddings,
             collection_name="3gpp_standards",
@@ -49,11 +56,7 @@ def init_backend():
             api_key=qdrant_api_key
         )
     else:
-        vectorstore = QdrantVectorStore.from_existing_collection(
-            embedding=embeddings,
-            collection_name="3gpp_standards",
-            path="qdrant_db"
-        )
+        raise RuntimeError("No qdrant_db folder found and no QDRANT_URL/QDRANT_API_KEY provided.")
         
     retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
 

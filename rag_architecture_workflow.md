@@ -9,9 +9,9 @@ graph TD
     subgraph Data["1. Data Strategy & Ingestion"]
         A1["3GPP Specs PDF/Word"] --> A2["Document Parser"]
         A2 --> A3["Structure-Aware Chunking"]
-        A3 --> A4["Metadata Extraction<br/>Spec ID, Release, Section"]
-        A4 --> A5["Embedding Model<br/>Domain Specific"]
-        A5 --> A6[("Vector DB + Keyword DB")]
+        A3 --> A4["Metadata Extraction"]
+        A4 --> A5["Embedding Model"]
+        A5 --> A6["Vector DB + Keyword DB"]
     end
 
     subgraph Client["Client Interface"]
@@ -21,28 +21,29 @@ graph TD
 
     subgraph Retrieval["2. Orchestration & Retrieval"]
         R1["Query Rewriting/Expansion"]
-        R2["Hybrid Search<br/>Dense + BM25"]
-        R3["Re-ranking Model<br/>Cross-Encoder"]
+        R2["Hybrid Search: Dense + BM25"]
+        R3["Re-ranking Model"]
         U1 --> R1
         R1 --> R2
-        R2 <--> A6
+        R2 --> A6
+        A6 --> R2
         R2 --> R3
     end
 
     subgraph Generation["3. Grounded Generation"]
-        G1["Strict System Prompting<br/>'Only use provided context'"]
+        G1["Strict System Prompting"]
         G2["LLM Generator"]
         R3 --> G1
         G1 --> G2
     end
 
     subgraph Guardrails["4. Verification & Guardrails"]
-        V1{"Context Entailment Check<br/>Is response supported?"}
+        V1["Context Entailment Check"]
         V2["Fallback: Information not found"]
         V3["Citation Formatting"]
         G2 --> V1
-        V1 -- No --> V2
-        V1 -- Yes --> V3
+        V1 -->|No| V2
+        V1 -->|Yes| V3
     end
 
     V3 --> U2

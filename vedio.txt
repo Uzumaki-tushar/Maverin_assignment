@@ -1,0 +1,133 @@
+================================================================================
+           3GPP RAG CHATBOT - PROJECT OVERVIEW & WORKFLOW VIDEO SCRIPT
+================================================================================
+
+[SCENE 1: INTRODUCTION & OVERVIEW]
+--------------------------------------------------------------------------------
+Hi everyone! Welcome to this walkthrough of our High-Precision 3GPP RAG Chatbot. 
+3GPP Telecommunications standards (5G NR, LTE, RRC, NAS protocols) are dense, 
+highly complex, and full of specialized terminology. Standard LLMs often 
+hallucinate or provide generic answers when queried about specific 3GPP specs.
+
+Our goal with this project is to build an end-to-end Retrieval-Augmented Generation 
+(RAG) system with NEAR-ZERO HALLUCINATIONS, multi-model resilience, persistent 
+session memory, and a clean Streamlit interface.
+
+--------------------------------------------------------------------------------
+[SCENE 2: SYSTEM ARCHITECTURE & TECH STACK]
+--------------------------------------------------------------------------------
+Here is a breakdown of the technology stack used to power each core feature:
+
+1. Orchestration & State Machine: 
+   - Tech: LangGraph (`StateGraph`, `END`, state routing)
+   - Function: Manages cyclic agentic execution, conditional routing between retrieval, 
+     grading, generation, and fallback paths.
+
+2. Embedding & Vector Database:
+   - Tech: FastEmbed (`BAAI/bge-small-en-v1.5`) & Qdrant (`langchain-qdrant`, `QdrantVectorStore`)
+   - Function: High-performance, lightweight CPU-optimized embeddings paired with 
+     Qdrant's vector search engine.
+
+3. LLM Generation & Multi-Model Resilience:
+   - Tech: Groq API (`ChatGroq`) with LangChain's `.with_fallbacks()`
+   - Function: Ensures 99.99% uptime with fallback chain:
+     Llama-3.3-70b-versatile -> Llama-3.1-8b-instant -> Qwen-3-32b -> Qwen-3.6-27b
+
+4. Persistent Multi-Session Memory:
+   - Tech: SQLite & `langgraph-checkpoint-sqlite` (`SqliteSaver`)
+   - Function: Saves chat state, history, and checkpoint threads locally in `checkpoints.sqlite` 
+     enabling sidebar conversation switching.
+
+5. Observability & Evaluation:
+   - Tech: LangSmith (`LANGCHAIN_TRACING_V2`)
+   - Function: Tracks latency, token counts, model decisions, and retrieval relevance scores.
+
+6. Frontend Interface & Cloud Deployment:
+   - Tech: Streamlit (Custom Dark Theme via `.streamlit/config.toml`) & Streamlit Cloud
+   - Function: Minimalist dark-mode UI with sidebar history navigation and secure secrets management.
+
+--------------------------------------------------------------------------------
+[SCENE 3: END-TO-END WORKFLOW STEP-BY-STEP]
+--------------------------------------------------------------------------------
+
+STEP 1: DOCUMENT INGESTION & STRUCTURE-AWARE CHUNKING
+- Tech Used: `python-docx`, LangChain Text Splitters
+- Workflow:
+  1. Raw 3GPP specifications (.docx files) are parsed.
+  2. Rather than arbitrary character splitting, the ingested text undergoes structure-aware 
+     chunking that respects 3GPP section headers, clause numbers, and Release tags.
+  3. Metadata (Release version, Specification number, Clause) is attached to each chunk.
+
+STEP 2: VECTOR EMBEDDING & INDEXING
+- Tech Used: `fastembed` (Model: BAAI/bge-small-en-v1.5), `qdrant-client`
+- Workflow:
+  1. FastEmbed generates 384-dimensional dense vectors for all 3GPP chunks.
+  2. Embeddings and metadata are indexed inside a local Qdrant collection named `3gpp_standards`.
+  3. The database is stored locally inside `qdrant_db/` and committed to Git for serverless deployment.
+
+STEP 3: LANGGRAPH AGENTIC CONTROL FLOW
+- Tech Used: `langgraph`, `typing.TypedDict`
+- Workflow State:
+  `GraphState` maintains:
+   - `question`: User query
+   - `generation`: LLM response
+   - `web_search`: Boolean flag for out-of-scope queries
+   - `documents`: List of retrieved 3GPP document chunks
+
+- Node Execution Pipeline:
+   [START] -> [retrieve] -> [grade_documents] -> (Conditional Decision)
+                                                |--> All Relevant?  -> [generate] -> [END]
+                                                |--> Irrelevant/Out-of-Scope? -> [fallback_response] -> [END]
+
+STEP 4: RETRIEVAL & DOCUMENT RELEVANCE GRADING (HALLUCINATION GUARDRAIL #1)
+- Tech Used: LangGraph Node (`grade_documents`), Groq Llama-3.3-70b (with Structured Output/JSON Pydantic parser)
+- Workflow:
+  1. `retrieve` node queries Qdrant for top-k (k=3) relevant chunks.
+  2. `grade_documents` node evaluates each chunk using a binary decision ('yes'/'no').
+  3. If a chunk does not contain relevant 3GPP standard details, it is filtered out.
+  4. If NO documents pass grading (e.g., query is "How do I bake a cake?"), the graph routes to 
+     the fallback node without generating hallucinated content.
+
+STEP 5: GROUNDED GENERATION (HALLUCINATION GUARDRAIL #2)
+- Tech Used: `ChatGroq` (`llama-3.3-70b-versatile` + Fallback Models), Strict System Prompt
+- Workflow:
+  1. The system prompt enforces strict domain grounding:
+     "You are an expert assistant for 3GPP standards. Answer ONLY using the provided context.
+      If the answer is not in the context, state 'Information not found in provided 3GPP specifications.'"
+  2. The LLM generates a response enriched with clause citations (e.g., [TS 38.331 Section 5.3.1]).
+
+STEP 6: LLM FALLBACK RESILIENCE MECHANISM
+- Tech Used: `langchain_groq.ChatGroq`, `with_fallbacks()`
+- Workflow:
+  1. Primary Model: `llama-3.3-70b-versatile` (Highest accuracy & reasoning)
+  2. Fallback 1: `llama-3.1-8b-instant` (Ultra-low latency fallback)
+  3. Fallback 2: `qwen/qwen3-32b` (Alternative high-capacity model)
+  4. Fallback 3: `qwen/qwen3.6-27b` (Final fallback)
+  - If Groq encounters rate-limiting (HTTP 429) or outage on model #1, it seamlessly fails over to #2, #3, or #4 without throwing errors to the user.
+
+STEP 7: PERSISTENT MULTI-SESSION CHAT MEMORY
+- Tech Used: `langgraph-checkpoint-sqlite` (`SqliteSaver`), SQLite database (`checkpoints.sqlite`), Streamlit `st.session_state`
+- Workflow:
+  1. Each conversation thread gets a unique `thread_id` UUID.
+  2. LangGraph checkpointer persists full conversation states and graph histories into `checkpoints.sqlite`.
+  3. Streamlit queries `checkpoints.sqlite` to render all past chat threads in the sidebar.
+  4. Users can click any past thread ID to reload and continue previous conversations seamlessly.
+
+STEP 8: STREAMLIT DARK THEME UI & SECURE CLOUD DEPLOYMENT
+- Tech Used: Streamlit, TOML configuration (`.streamlit/config.toml`), `st.secrets`
+- Workflow:
+  1. Custom dark palette configured (`backgroundColor="#121212"`, `secondaryBackgroundColor="#1e1e1e"`, `primaryColor="#3498db"`).
+  2. API keys stored securely using `st.secrets` (or environment variables).
+  3. Application auto-detects `qdrant_db/` embedded in repository root for zero-external-dependency deployment on Streamlit Cloud.
+
+--------------------------------------------------------------------------------
+[SCENE 4: SUMMARY & DEMO QUESTIONS]
+--------------------------------------------------------------------------------
+To test the chatbot, try these sample queries:
+1. In-Domain Query: "What is the procedure for RRC Connection Re-establishment in 5G NR?"
+   -> Result: Provides detailed, grounded steps with clause citations from TS 38.331.
+2. Out-of-Domain Guardrail Test: "How do I bake a chocolate cake?"
+   -> Result: Safely triggers fallback guardrail: "The provided 3GPP specifications do not contain information to answer this query."
+
+Thank you for watching! All code, graph workflows, vector databases, and app scripts are open and ready for deployment.
+================================================================================

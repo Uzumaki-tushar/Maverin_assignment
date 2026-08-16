@@ -169,6 +169,11 @@ def init_backend():
     workflow.add_conditional_edges("check_hallucination", handle_hallucination)
     
     conn = sqlite3.connect("checkpoints.sqlite", check_same_thread=False, timeout=30)
+    try:
+        conn.execute("PRAGMA journal_mode=WAL;")
+        conn.execute("PRAGMA busy_timeout=5000;")
+    except Exception:
+        pass
     memory = SqliteSaver(conn)
     memory.setup()
     app = workflow.compile(checkpointer=memory)
@@ -211,15 +216,17 @@ with st.sidebar:
             st.session_state.thread_id = thread
             
             config = {"configurable": {"thread_id": thread}}
-            state = app.get_state(config)
-            
             st.session_state.messages = []
-            if state and hasattr(state, 'values') and "messages" in state.values:
-                for m in state.values["messages"]:
-                    if isinstance(m, HumanMessage):
-                        st.session_state.messages.append({"role": "user", "content": m.content})
-                    elif isinstance(m, AIMessage):
-                        st.session_state.messages.append({"role": "assistant", "content": m.content})
+            try:
+                state = app.get_state(config)
+                if state and hasattr(state, 'values') and "messages" in state.values:
+                    for m in state.values["messages"]:
+                        if isinstance(m, HumanMessage):
+                            st.session_state.messages.append({"role": "user", "content": m.content})
+                        elif isinstance(m, AIMessage):
+                            st.session_state.messages.append({"role": "assistant", "content": m.content})
+            except Exception:
+                pass
             st.rerun()
 
 # --- Streamlit UI ---

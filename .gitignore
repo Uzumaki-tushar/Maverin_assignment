@@ -40,5 +40,6 @@ test_db.py
 test_demo.txt
 update_notebook2.py
 update_notebook_fallback.py
-
-qdrant_db/
+# Ignore Qdrant lock files so Streamlit Cloud can open the database without "database locked" errors
+qdrant_db/.lock
+qdrant_db/**/.lock
